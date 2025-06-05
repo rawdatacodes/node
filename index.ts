@@ -1,1 +1,3 @@
-console.log("Hello via Bun!");
+#!/usr/bin/env node
+
+console.log("Hello from @rawdataxyz/node!");
