@@ -1,16 +1,25 @@
 {
   "name": "@rawdataxyz/node",
-  "private": false,
   "version": "0.0.1",
-  "description": "rawdata.xyz node",
+  "author": "rawdataxyz",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rawdataxyz/node.git"
+  },
   "main": "dist/index.js",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
   "bin": {
     "rawdata-node": "dist/index.js"
   },
-  "scripts": {
-    "build": "tsc && chmod +x dist/index.js",
-    "prepublishOnly": "npm run build",
-    "start": "node dist/index.js"
+  "description": "rawdata.xyz node",
+  "engines": {
+    "node": ">=18"
   },
   "files": [
     "dist/**/*",
@@ -21,21 +30,16 @@
     "cli",
     "tool"
   ],
-  "author": "",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/rawdataxyz/node.git"
+  "private": false,
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "build": "tsc && chmod +x dist/index.js",
+    "prepublishOnly": "npm run build",
+    "start": "node dist/index.js"
   },
   "type": "module",
-  "devDependencies": {
-    "@types/bun": "latest",
-    "typescript": "^5"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  },
-  "engines": {
-    "node": ">=18"
+  "dependencies": {
+    "agent-twitter-client": "elizaOS/agent-twitter-client#0.0.19"
   }
 }

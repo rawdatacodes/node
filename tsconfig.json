@@ -31,7 +31,7 @@
     "noPropertyAccessFromIndexSignature": false
   },
   "include": [
-    "index.ts",
+    "src/index.ts",
     "src/**/*"
   ],
   "exclude": [
