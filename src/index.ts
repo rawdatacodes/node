@@ -2,6 +2,27 @@
 
 import { ReconnectManager } from "./reconnect.js";
 
+const parseArgs = (): { apiKey?: string } => {
+  const args = process.argv.slice(2);
+  const result: { apiKey?: string } = {};
+  
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--key" && i + 1 < args.length) {
+      result.apiKey = args[i + 1];
+      i++; // skip next arg since it's the value
+    }
+  }
+  
+  return result;
+};
+
+const { apiKey } = parseArgs();
+
+if (!apiKey) {
+  console.error("❌ API key is required. Use: npx @rawdataxyz/node@latest -- --key YOUR_API_KEY");
+  process.exit(1);
+}
+
 const getServerUrl = (): string => {
   if (process.env.WS_SERVER_URL) {
     return process.env.WS_SERVER_URL;
@@ -19,6 +40,7 @@ const serverUrl = getServerUrl();
 let ws: WebSocket | null = null;
 let messageInterval: Timer | null = null;
 let isShuttingDown = false;
+let isAuthenticated = false;
 
 const reconnectManager = new ReconnectManager();
 
@@ -31,10 +53,13 @@ const cleanup = (): void => {
 
 const startMessageInterval = (): void => {
   messageInterval = setInterval(() => {
-    if (ws?.readyState === WebSocket.OPEN) {
-      ws.send(`Message at ${new Date().toISOString()}`);
+    if (ws?.readyState === WebSocket.OPEN && isAuthenticated) {
+      ws.send(JSON.stringify({
+        type: "heartbeat",
+        timestamp: new Date().toISOString()
+      }));
     }
-  }, 3000);
+  }, 30000); // every 30 seconds
 };
 
 const connect = (): void => {
@@ -46,14 +71,47 @@ const connect = (): void => {
   ws = new WebSocket(serverUrl);
 
   ws.onopen = () => {
-    console.log("Connected to server");
+    console.log("🔗 Connected to server");
     reconnectManager.onSuccessfulConnection();
-    ws!.send("Hello from client!");
-    startMessageInterval();
+    isAuthenticated = false;
   };
 
   ws.onmessage = (event) => {
-    console.log("Received:", event.data);
+    try {
+      const data = JSON.parse(event.data);
+      
+      switch (data.type) {
+        case "auth_required":
+          console.log("🔐 Server requesting authentication...");
+          ws!.send(JSON.stringify({
+            type: "auth",
+            apiKey
+          }));
+          break;
+          
+        case "auth_success":
+          console.log("✅ Authentication successful!");
+          console.log(`👤 User ID: ${data.userId}`);
+          isAuthenticated = true;
+          startMessageInterval();
+          break;
+          
+        case "auth_error":
+          console.error("❌ Authentication failed:", data.message);
+          process.exit(1);
+          break;
+          
+        case "error":
+          console.error("❌ Server error:", data.message);
+          break;
+          
+        default:
+          console.log("📨 Received:", data);
+      }
+    } catch (error) {
+      // fallback for non-JSON messages
+      console.log("📨 Received:", event.data);
+    }
   };
 
   ws.onerror = (error) => {
@@ -61,10 +119,15 @@ const connect = (): void => {
   };
 
   ws.onclose = (event) => {
-    console.log(`Connection closed: ${event.code} ${event.reason}`);
+    console.log(`🔌 Connection closed: ${event.code} ${event.reason}`);
     cleanup();
+    isAuthenticated = false;
 
     if (event.code !== 1000 && !isShuttingDown) {
+      if (event.code === 1008) {
+        console.error("❌ Authentication failed. Please check your API key.");
+        process.exit(1);
+      }
       reconnectManager.scheduleReconnect(connect);
     }
   };
