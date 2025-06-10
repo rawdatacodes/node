@@ -7,10 +7,6 @@
     "url": "https://github.com/rawdataxyz/node.git"
   },
   "main": "dist/index.js",
-  "devDependencies": {
-    "@types/bun": "latest",
-    "typescript": "^5"
-  },
   "peerDependencies": {
     "typescript": "^5"
   },
@@ -40,6 +36,12 @@
   },
   "type": "module",
   "dependencies": {
-    "agent-twitter-client": "elizaOS/agent-twitter-client#0.0.19"
+    "agent-twitter-client": "^0.0.18",
+    "inquirer": "^9.2.15"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/inquirer": "^9.0.7",
+    "typescript": "^5"
   }
 }

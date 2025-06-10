@@ -1,6 +1,57 @@
 #!/usr/bin/env node
 
+import fs from "node:fs";
+import path from "node:path";
+import inquirer from "inquirer";
 import { ReconnectManager } from "./reconnect.js";
+import { handleTwitterLogin } from "./twitter.js";
+
+interface Config {
+  rawdata?: {
+    apiKey?: string;
+  };
+  socialNetworks?: {
+    xcom?: {
+      xcomSession?: string;
+    };
+  };
+}
+
+const CONFIG_FILE = path.resolve(process.cwd(), "config.json");
+
+const loadConfig = (): Config => {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      const configData = fs.readFileSync(CONFIG_FILE, "utf-8");
+      return JSON.parse(configData);
+    }
+  } catch (error) {
+    console.warn("Warning: Could not load config file, starting fresh");
+  }
+  return {};
+};
+
+const saveConfig = (config: Config): void => {
+  try {
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+    console.log(`✅ Configuration saved to ${CONFIG_FILE}`);
+  } catch (error) {
+    console.error("Error saving config:", error);
+  }
+};
+
+const promptApiKey = async (): Promise<string> => {
+  const answers = await inquirer.prompt([
+    {
+      type: "password",
+      name: "apiKey",
+      message: "Enter your API key:",
+      validate: (input: string) => input.trim() !== "" || "API key is required",
+    },
+  ]);
+
+  return answers.apiKey;
+};
 
 const parseArgs = (): { apiKey?: string } => {
   const args = process.argv.slice(2);
@@ -16,12 +67,35 @@ const parseArgs = (): { apiKey?: string } => {
   return result;
 };
 
-const { apiKey } = parseArgs();
+const getApiKey = async (): Promise<string> => {
+  // First try command line argument
+  const { apiKey: argApiKey } = parseArgs();
+  if (argApiKey) {
+    return argApiKey;
+  }
 
-if (!apiKey) {
-  console.error("❌ API key is required. Use: npx @rawdataxyz/node@latest -- --key YOUR_API_KEY");
-  process.exit(1);
-}
+  // Then try config file
+  const config = loadConfig();
+  if (config.rawdata?.apiKey) {
+    console.log("✅ API key found in configuration");
+    return config.rawdata.apiKey;
+  }
+
+  // Finally prompt user
+  console.log("API key not found. Please provide your API key:");
+  const apiKey = await promptApiKey();
+  
+  // Save to config
+  if (!config.rawdata) {
+    config.rawdata = {};
+  }
+  config.rawdata.apiKey = apiKey;
+  saveConfig(config);
+  
+  return apiKey;
+};
+
+const apiKey = await getApiKey();
 
 const getServerUrl = (): string => {
   if (process.env.WS_SERVER_URL) {
@@ -62,6 +136,8 @@ const startMessageInterval = (): void => {
   }, 30000); // every 30 seconds
 };
 
+
+
 const connect = (): void => {
   if (isShuttingDown) return;
   
@@ -90,10 +166,13 @@ const connect = (): void => {
           break;
           
         case "auth_success":
-          console.log("✅ Authentication successful!");
+          console.log("✅ WebSocket authentication successful!");
           console.log(`👤 User ID: ${data.userId}`);
           isAuthenticated = true;
           startMessageInterval();
+          
+          // Start Twitter authentication after WebSocket is connected
+          handleTwitterLogin(loadConfig(), saveConfig);
           break;
           
         case "auth_error":
@@ -132,6 +211,8 @@ const connect = (): void => {
     }
   };
 };
+
+console.log("🚀 Starting rawdata.xyz CLI...\n");
 
 connect();
 
