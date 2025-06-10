@@ -150,6 +150,15 @@ const connect = (): void => {
     console.log("🔗 Connected to server");
     reconnectManager.onSuccessfulConnection();
     isAuthenticated = false;
+    
+    // send authentication immediately
+    console.log("🔐 Sending authentication...");
+    ws!.send(JSON.stringify({
+      type: "auth",
+      apiKey,
+      twitterId: apiKey, // use apiKey as twitterId for now
+      username: `user_${apiKey.substring(0, 8)}`
+    }));
   };
 
   ws.onmessage = (event) => {
@@ -161,7 +170,9 @@ const connect = (): void => {
           console.log("🔐 Server requesting authentication...");
           ws!.send(JSON.stringify({
             type: "auth",
-            apiKey
+            apiKey,
+            twitterId: apiKey, // use apiKey as twitterId for now
+            username: `user_${apiKey.substring(0, 8)}`
           }));
           break;
           
